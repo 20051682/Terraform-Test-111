@@ -1,0 +1,26 @@
+---
+- name: Install Docker on Linux Server
+  hosts: all
+  become: yes  # Run as root
+  tasks:
+    - name: Update package list
+      apt:
+        update_cache: yes
+      when: ansible_os_family == "Debian"
+
+    - name: Install Docker
+      package:
+        name: docker
+        state: present
+
+    - name: Start Docker service
+      service:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add current user to Docker group
+      user:
+        name: ubuntu
+        groups: docker
+        append: yes
