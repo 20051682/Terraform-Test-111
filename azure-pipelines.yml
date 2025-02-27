@@ -1,19 +1,63 @@
-# Starter pipeline
-# Start with a minimal pipeline that you can customize to build and deploy your code.
-# Add steps that build, run tests, deploy, and more:
-# https://aka.ms/yaml
+# # Starter pipeline
+# # Start with a minimal pipeline that you can customize to build and deploy your code.
+# # Add steps that build, run tests, deploy, and more:
+# # https://aka.ms/yaml
+
+# trigger:
+# - main
+
+# pool:
+#   vmImage: ubuntu-latest
+
+# steps:
+# - script: echo Hello, world!
+#   displayName: 'Run a one-line script'
+
+# - script: |
+#     echo Add other tasks to build, test, and deploy your project.
+#     echo See https://aka.ms/yaml
+#   displayName: 'Run a multi-line script'
+
 
 trigger:
-- main
+  branches:
+    include:
+      - main  # Trigger on push to main branch
 
-pool:
-  vmImage: ubuntu-latest
+pool: 
+  name: 'PoolForEC2'
+  vmImage: 'ubuntu-latest'
 
-steps:
-- script: echo Hello, world!
-  displayName: 'Run a one-line script'
+variables:
+  MY_DOCKER_IMAGE: 'simple-web-app'  # My app name
 
-- script: |
-    echo Add other tasks to build, test, and deploy your project.
-    echo See https://aka.ms/yaml
-  displayName: 'Run a multi-line script'
+stages:
+•⁠  ⁠stage: Build
+  jobs:
+  - job: BuildingDockerFileAndPushToPipelineWorkSpace
+    steps:
+    - task: Docker@2
+      inputs:
+        command: 'build'
+        dockerfile: 'dockerfile'
+        repository: $(MY_DOCKER_IMAGE)
+        tags: web_app
+
+    - script: |
+        docker save -o $(Pipeline.Workspace)/webapp.tar $(MY_DOCKER_IMAGE):web_app
+      displayName: 'Save Docker image to tar'
+
+•⁠  ⁠stage: Deploy
+  jobs:
+  - job: DeployToEC2
+    steps:
+
+    - task: SSH@0
+      inputs:
+        sshEndpoint: 'MyEC2SSHConnection'
+        runOptions: 'inline'
+        inline: |
+          docker load -i $(Pipeline.Workspace)/webapp.tar
+          docker stop my-web-app || true
+          docker rm my-web-app || true
+          docker run -d -p 80:80 --name my-web-app $(MY_DOCKER_IMAGE):web_app
